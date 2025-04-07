@@ -1,0 +1,104 @@
+# 🏠 Home Lab Project: Building a SIEM with Wazuh, pfSense, and OpenSearch
+
+## ✈️ Project Title
+**"Home Cybersecurity Lab: From Infrastructure to Insight with pfSense and Wazuh"**
+
+## 📝 Project Goal
+To build a fully functional home lab environment using virtualization (VMware Workstation) to simulate a small-scale corporate network with:
+- A central **Wazuh SIEM Server** (running on Ubuntu Server VM)
+- **pfSense** as the router/firewall
+- Multiple monitored endpoints (Windows Server, Kali Linux)
+- **OpenSearch** integrated with Wazuh for dashboarding
+- Windows physical host for GUI-based monitoring and alerting
+
+This environment is meant for testing, monitoring, and gaining hands-on experience in security operations, network segmentation, alert management, and real-time log analysis.
+
+---
+
+## 📅 Progress Log: Day 1 — "Network Foundations with pfSense"
+
+### 🎯 Goal of the Day
+Set up pfSense inside VMware and configure networking so that:
+- All virtual machines are behind pfSense
+- pfSense provides routing and DHCP
+- Ubuntu Server connects successfully to pfSense LAN
+- Windows host can communicate with internal network
+
+---
+
+### ⚙️ Tasks Completed
+- Installed pfSense in VMware with two NICs:
+  - `em0` (WAN): Bridged to host's physical internet
+  - `em1` (LAN): Host-only network (VMnet1)
+- Configured **LAN interface** IP: `192.168.52.1/24`
+- Enabled **DHCP server** on LAN inside pfSense
+- Attached Ubuntu Server VM to VMnet1 (host-only)
+- Verified successful IP allocation (e.g. `192.168.52.128`)
+- Successfully pinged pfSense from Ubuntu: `ping 192.168.52.1`
+- Enabled static IP plans for critical infrastructure (e.g., Wazuh server)
+
+#### ✅ Commands Used
+```bash
+# Ubuntu VM
+ping 192.168.52.1
+ip a   # To check assigned IP
+sudo nano /etc/netplan/00-installer-config.yaml  # To set static IP
+sudo netplan apply
+
+# pfSense Console (if needed)
+set interface ip 192.168.52.1/24  # During LAN setup
+
+# Windows Host
+ipconfig /release
+ipconfig /renew
+ping 192.168.52.1
+```
+
+---
+
+### ⚡ Challenges & Solutions
+
+#### ❌ Issue:
+**"Windows host can't reach pfSense or Ubuntu server"**
+
+**Root Cause:**
+- VMnet1 (host-only) was not properly configured with an IP
+- DHCP not set up yet, so no IP was assigned to host's VMnet1
+
+**Solution:**
+- Manually assigned a static IP to `VMnet1` adapter on Windows host:
+  - IP: `192.168.52.100`
+  - Subnet: `255.255.255.0`
+- Verified with `ipconfig` and `ping 192.168.52.1`
+- Network communication between host and VMs worked!
+
+#### ❌ Issue:
+**"Bridged network not getting internet"**
+
+**Root Cause:**
+VMware Bridge Protocol wasn't checked on the correct interface.
+
+**Solution:**
+- Opened Network Adapter settings > Checked VMware Bridge Protocol
+- Restored default network settings in VMware Virtual Network Editor
+- Verified bridged interface connected to active physical NIC
+
+---
+
+### 🔗 Results
+- Internal network between pfSense LAN and Ubuntu Server = SUCCESSFUL
+- Windows host can communicate with internal network
+- pfSense dashboard reachable from host (via 192.168.52.1)
+- Foundation laid for SIEM components
+
+---
+
+## 🚀 Next Steps (Day 2 Plan)
+- Assign static IP to Ubuntu Server for Wazuh installation
+- Start Wazuh server setup
+- Connect Wazuh agents from Windows Server and Kali Linux
+- Configure rules, logs, and test alerting pipeline
+- Begin OpenSearch integration with Wazuh
+
+Stay tuned for **Progress Log: Day 2 - Wazuh Server Deployment** ✨
+
