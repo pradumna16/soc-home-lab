@@ -1,0 +1,14 @@
+wazuh_indexer:
+  nodes:
+    - name: indexer-1
+      ip: 192.168.52.128
+
+wazuh_manager:
+  nodes:
+    - name: manager-1
+      ip: 192.168.52.128
+
+wazuh_dashboard:
+  nodes:
+    - name: dashboard-1
+      ip: 192.168.52.128
