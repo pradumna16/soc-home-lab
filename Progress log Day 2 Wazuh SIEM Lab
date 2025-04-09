@@ -1,0 +1,98 @@
+# 📘 Wazuh SIEM Lab - Progress Day 2: All-in-One Installation Success
+
+## 🛠️ Objective
+To set up Wazuh (SIEM) in a home lab environment using a simplified method after multiple installation failures. This documentation covers how the all-in-one installation script was used to successfully install and run Wazuh, and how access was gained from a remote Windows host machine.
+
+---
+
+## 🧱 Lab Environment
+- **Host Machine:** Windows (for dashboard access)
+- **Ubuntu Server (VM):** Static IP `192.168.52.128`
+- **Role:** Acts as Wazuh Server (Indexer + Manager + Dashboard)
+
+---
+
+## ⚠️ Initial Failures
+### Issues Faced:
+1. **Dashboard Already Installed:**
+   - Previous partial installs caused conflicts.
+   - Overwrite option failed due to inability to fully remove Wazuh dashboard files.
+
+2. **Package Purge Failed:**
+   - Commands like `sudo apt purge wazuh-manager wazuh-dashboard wazuh-indexer wazuh-agent` didn't work.
+   - Resulted in `Unable to locate package` errors.
+
+3. **Manual Installation Frustrations:**
+   - Cert generation, file paths, and service issues slowed progress.
+   - Dashboard login failed due to unknown credentials.
+
+4. **No `internal_users.yml` File:**
+   - Couldn’t locate user password config normally found at `/var/ossec/data/wazuh-dashboard/internal_users.yml`
+
+---
+
+## ✅ Solution: All-in-One Installation Script
+### Step-by-Step:
+1. **Download the Script:**
+   ```bash
+   curl -sO https://packages.wazuh.com/4.11/wazuh-install.sh
+   ```
+
+2. **Run the Installer (All-in-One):**
+   ```bash
+   sudo bash wazuh-install.sh -a
+   ```
+   - ⚙️ Installs: Wazuh Indexer, Manager, Dashboard, Filebeat
+   - 🕒 Duration: 30-40 minutes
+
+3. **Access the Dashboard from Host:**
+   - Go to `https://192.168.52.128` from your Windows host browser
+   - Default login fails? Read below 👇
+
+---
+
+## 🔐 Resetting the Admin Password
+If the default dashboard credentials don’t work:
+
+1. **Download Password Tool:**
+   ```bash
+   curl -so wazuh-passwords-tool.sh https://packages.wazuh.com/resources/wazuh-passwords-tool.sh
+   ```
+
+2. **Make Script Executable:**
+   ```bash
+   chmod +x wazuh-passwords-tool.sh
+   ```
+
+3. **Reset Password:**
+   ```bash
+   sudo bash wazuh-passwords-tool.sh -u admin -p 'YourNewPassword123!'
+   ```
+
+4. **Login:** Use `admin` and your new password at the Wazuh dashboard login screen.
+
+---
+
+## 🔍 What We Learned
+- Manual installs = pain ⚠️
+- All-in-one script = game changer ✅
+- Even with failures, it's all progress if you don’t give up 💪
+
+---
+
+## 📅 Next Steps (Day 3 Goals)
+- Secure Wazuh with custom CA certificates (TLS for Wazuh components).
+- Begin onboarding agents from Windows Server and Kali Linux.
+- Configure basic alerts and rules.
+
+---
+
+## 📌 References
+- [Wazuh Official Installation Guide](https://documentation.wazuh.com/current/installation-guide/installing-wazuh/index.html)
+- [Wazuh Password Reset Tool](https://packages.wazuh.com/resources/wazuh-passwords-tool.sh)
+
+---
+
+## 🧠 Final Thought
+> "Sometimes success comes not from knowing more, but from knowing when to simplify."
+
