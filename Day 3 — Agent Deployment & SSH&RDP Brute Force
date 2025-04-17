@@ -1,0 +1,100 @@
+# Wazuh SIEM Home Lab - Day 3 Documentation
+
+## 🌟 Module Focus: Agent Deployment + Basic Log Monitoring
+
+---
+
+### ✅ Goal:
+- Deploy Wazuh agents on **Kali Linux** and **Windows Server 2019**
+- Monitor and alert on authentication activity
+- Capture brute-force attempts from both sides
+
+---
+
+## 🚀 Agent Installation
+
+### Kali Linux Agent (kali-agent)
+- VM added to the **Host-Only** network segment (`VMnet1`) matching Wazuh server's subnet (192.168.52.x)
+- Assigned a static IP: `192.168.52.110`
+
+#### Steps:
+```bash
+curl -sO https://packages.wazuh.com/4.x/linux/wazuh-agent_4.11.2-1_amd64.deb
+sudo WAZUH_MANAGER='192.168.52.128' WAZUH_AGENT_NAME='kali-agent' dpkg -i ./wazuh-agent_4.11.2-1_amd64.deb
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent
+```
+
+- Log forwarding confirmed from `/var/log/auth.log`, Apache access/error logs, and other critical paths.
+- Tested with SSH brute force (via Hydra)
+- Sample rule hit:
+```json
+rule.id: 2502
+rule.description: syslog: User missed the password more than one time
+rule.level: 10
+rule.groups: [syslog, authentication_failed, brute_force]
+```
+
+---
+
+### Windows Server Agent (win-agent)
+- VM also moved to **Host-Only** segment
+- Assigned static IP: `192.168.52.120`
+
+#### Steps (PowerShell):
+```powershell
+Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.11.2-1.msi -OutFile $env:TEMP\wazuh-agent.msi
+msiexec.exe /i $env:TEMP\wazuh-agent.msi /q WAZUH_MANAGER='192.168.52.128' WAZUH_AGENT_NAME='win-agent'
+```
+
+- Verified log reception on Wazuh Dashboard.
+- Added custom `<localfile>` entries for `Security`, `System`, and `Sysmon` logs.
+- Successfully parsed RDP brute force attempts (Event ID `4625` with `logonType: 3`)
+
+#### Sample Rule Hit:
+```json
+rule.id: 18107
+rule.description: Windows logon failed.
+rule.level: 5
+rule.groups: [windows, authentication_failed, win_logon_failed]
+```
+
+---
+
+## 🧬 Issues Encountered & Resolved
+
+| Issue | Root Cause | Resolution |
+|-------|------------|------------|
+| Apache access.log not decoding | Missing or misconfigured decoder | Will revisit in Module 5: Custom Log Ingestion |
+| Sysmon logs not visible | Logging not enabled or ACLs misconfigured | Enabled via `wevtutil` and adjusted permissions |
+| Wazuh Manager crash after rule edit | Invalid XML (`url` field static + malformed tag) | Fixed syntax + restarted manager |
+| Agent config not applied | Wrong `agent.conf` path | Used `/var/ossec/etc/shared/default/agent.conf` to push config |
+
+---
+
+## 🔍 Success Markers:
+- ✔️ Log flow from both agents
+- ✔️ Custom agent names recognized on Dashboard
+- ✔️ SSH brute force from Kali detected
+- ✔️ RDP brute force attempts on Windows captured
+- ✔️ Sysmon started sending event logs (e.g., `EventID 1`, `3`, etc.)
+
+---
+
+## 📊 Next Steps (Day 4 Preview)
+### Module 2: File Integrity Monitoring (FIM)
+- Enable FIM on both agents
+- Track sensitive files & registry
+- Generate alerts on changes
+
+---
+
+> ⚡ "Detection begins where logs are born, but insight begins when you make sense of them."
+
+---
+
+**LinkedIn Post published:** [_Day 3 — Agents, Alerts, and a Bit of Chaos_](#)
+
+**Author:** Hangman SOC | Wazuh Home Lab Series
+**Date:** April 2025
+
