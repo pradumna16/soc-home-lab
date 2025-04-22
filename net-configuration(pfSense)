@@ -1,0 +1,155 @@
+Here's a GitHub-friendly markdown (`.md`) version of your network configuration documentation that you can save directly to your repository:
+
+```markdown
+# Kali Linux Network Configuration Guide
+
+## Static IP on eth1 & DHCP on eth0
+
+```bash
+ip -brief address
+nmcli device status
+```
+
+## 2. Configure Static IP on eth1
+
+### Using NetworkManager (Recommended)
+
+```bash
+# Create new static connection
+sudo nmcli connection add type ethernet ifname eth1 con-name eth1-static
+
+# Configure static IP
+sudo nmcli connection modify eth1-static \
+    ipv4.method manual \
+    ipv4.addresses 192.168.52.110/24 \
+    ipv4.gateway 192.168.52.1 \
+    ipv4.dns "8.8.8.8,1.1.1.1" \
+    ipv4.ignore-auto-dns yes
+
+# Activate connection
+sudo nmcli connection up eth1-static
+```
+
+### Using Traditional ifupdown
+
+```bash
+sudo nano /etc/network/interfaces
+```
+
+Add:
+```ini
+auto eth1
+iface eth1 inet static
+    address 192.168.52.110
+    netmask 255.255.255.0
+    gateway 192.168.52.1
+    dns-nameservers 8.8.8.8 1.1.1.1
+```
+
+Apply:
+```bash
+sudo ifdown eth1 && sudo ifup eth1
+```
+
+## 3. Restore DHCP on eth0
+
+### Using NetworkManager
+
+```bash
+# Create DHCP connection
+sudo nmcli connection add type ethernet ifname eth0 con-name eth0-dhcp
+
+# Ensure it uses DHCP
+sudo nmcli connection modify eth0-dhcp ipv4.method auto
+
+# Prevent routing conflicts
+sudo nmcli connection modify eth0-dhcp ipv4.never-default yes
+
+# Activate
+sudo nmcli connection up eth0-dhcp
+```
+
+### Using ifupdown
+
+```bash
+sudo nano /etc/network/interfaces
+```
+
+Add:
+```ini
+auto eth0
+iface eth0 inet dhcp
+```
+
+Apply:
+```bash
+sudo ifdown eth0 && sudo ifup eth0
+```
+
+## 4. Verification Commands
+
+```bash
+# Check IP assignments
+ip addr show eth0 && ip addr show eth1
+
+# Verify routing
+ip route
+
+# Test connectivity
+ping -c 4 192.168.52.1  # Gateway
+ping -c 4 google.com    # Internet
+
+# Check DNS
+nslookup google.com
+cat /etc/resolv.conf
+```
+
+## 5. Troubleshooting Checklist
+
+| Issue | Command |
+|-------|---------|
+| IP conflict | `arping -c 3 -I eth1 192.168.52.110` |
+| Connection errors | `journalctl -xe -u NetworkManager` |
+| DNS problems | `dig google.com @8.8.8.8` |
+| Route conflicts | `ip route show table all` |
+| Interface status | `ethtool eth1` |
+
+## 6. VMware Network Adapter Settings
+
+- **eth0 (DHCP)**: NAT
+- **eth1 (Static)**: Bridged/Host-only
+- Verify in: VM > Settings > Network Adapters
+
+## 7. Quick Reset Commands
+
+```bash
+# Full network restart
+sudo nmcli networking off && sudo nmcli networking on
+
+# Complete reset (caution!)
+sudo systemctl restart NetworkManager
+sudo systemctl restart networking
+```
+```
+
+### How to Use This Document:
+1. Save as `kali-network-config.md` in your docs folder
+2. Commit to Git: 
+```bash
+git add docs/kali-network-config.md
+git commit -m "Add Kali Linux network configuration guide"
+git push
+```
+
+### Features:
+- Proper Markdown formatting for GitHub
+- Syntax highlighting for all code blocks
+- Clear section headers
+- Table for troubleshooting commands
+- Both NetworkManager and ifupdown methods included
+
+Would you like me to add any additional sections like:
+- [ ] Change history/version log
+- [ ] Contributor guidelines
+- [ ] Related documents links
+- [ ] Animated GIF demonstrating the process?
