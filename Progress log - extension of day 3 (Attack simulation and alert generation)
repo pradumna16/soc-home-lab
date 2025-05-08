@@ -1,0 +1,171 @@
+# Wazuh Home SOC Project: Brute Force Detection (SSH & RDP)
+
+## 🧠 Project Objective
+
+Build a **home lab SIEM (Security Information and Event Management) solution** using **Wazuh** to detect and alert on brute-force attacks against both SSH and RDP services. This setup replicates a mini SOC to monitor authentication failures and receive real-time alerts via Discord.
+
+---
+
+## 🏗️ Lab Architecture
+
+| Component         | Description                                 |
+| ----------------- | ------------------------------------------- |
+| Wazuh Server      | Ubuntu Server 20.04 (192.168.52.128)        |
+| Windows Server VM | Target for RDP brute-force (192.168.52.115) |
+| Kali Linux VM     | Target for SSH brute-force (192.168.52.110) |
+| WSL/Ubuntu Host   | Used as Hydra attacker                      |
+| pfSense           | Provides routing for internal VMs           |
+| ngrok (optional)  | Used initially for exposing services (SSH)  |
+
+---
+
+## 🔧 Wazuh Stack Setup (Completed Earlier)
+
+* Deployed using the **all-in-one installation script**: `wazuh-install.sh -a`
+* Installed and configured **Wazuh Indexer**, **Dashboard**, and **Manager**
+* Configured **Wazuh agents** on Windows Server and Kali Linux
+* Set up **Sysmon** for Windows agent
+* Enabled internet and connected all VMs under proper networking
+
+---
+
+## 🧪 Module 1: SSH Brute Force Detection (Kali Linux)
+
+### ✅ Simulation:
+
+* Used **Hydra** on WSL/Ubuntu to attack Kali SSH:
+
+  ```bash
+  hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://192.168.52.110
+  ```
+
+### 🔍 Detection:
+
+* Wazuh Rule IDs triggered: `5760`, `5763`, `2502`
+* Logs forwarded from `journalctl` with failed login info
+
+### 📈 OpenSearch Monitor:
+
+* Index: `wazuh-alerts-*`
+* Trigger condition:
+
+  ```js
+  ctx.results[0].hits.total.value > 5
+  ```
+* Query filters:
+
+  ```json
+  {
+    "query": {
+      "bool": {
+        "should": [
+          {"match": {"rule.id": "5760"}},
+          {"match": {"rule.id": "5763"}},
+          {"match": {"rule.id": "2502"}}
+        ]
+      }
+    },
+    "size": 1
+  }
+  ```
+
+---
+
+## 🧪 Module 2: RDP Brute Force Detection (Windows Server)
+
+### ✅ Simulation:
+
+* Used **Hydra**:
+
+  ```bash
+  hydra -l Administrator -P passwords.txt rdp://192.168.52.115
+  ```
+
+* RDP module is experimental; configured fewer threads (`-t 1` or `-t 4`) for stability.
+
+### 🔍 Detection:
+
+* Detected **Event ID 4625** for failed logons
+* Captured `data.win.eventdata` for source IP, username, reason, etc.
+* Wazuh Rule ID triggered: `60122`
+
+### 📈 OpenSearch Monitor:
+
+* Same threshold condition:
+
+  ```js
+  ctx.results[0].hits.total.value > 5
+  ```
+* Rule ID matched: `60122`
+
+---
+
+## 📩 Discord Notification Integration
+
+### 🛠️ Setup:
+
+* Created **Discord Webhook**
+* Added it to **Wazuh > Alerts > Notifications** as **Custom Webhook**
+
+### ⚠️ Errors Faced:
+
+1. `"The request body contains invalid JSON"` – Missing or malformed JSON
+
+   * **Fix**: Wrapped message in `"content":` field
+
+2. `"Cannot send an empty message"` – Handlebars failed to render
+
+   * **Fix**: Used fallback values and proper template escaping
+
+3. `DefaultMustache@...` – Nested template parsing failed
+
+   * **Fix**: Avoided direct dot-access with safe Mustache syntax
+
+### ✅ Final Working Template:
+
+```json
+{
+  "content": "🚨 Monitor **{{ctx.monitor.name}}** just entered alert status!\n- **Trigger**: {{ctx.trigger.name}}\n- **Severity**: {{ctx.trigger.severity}}\n- **Period start**: {{ctx.periodStart}}\n- **Period end**: {{ctx.periodEnd}}\n\n🔎 **Rule**: {{#ctx.results.0.hits.hits.0._source.rule.description}}{{ctx.results.0.hits.hits.0._source.rule.description}}{{/ctx.results.0.hits.hits.0._source.rule.description}}{{^ctx.results.0.hits.hits.0._source.rule.description}}No Rule Description{{/ctx.results.0.hits.hits.0._source.rule.description}}\n🖥️ **Agent**: {{ctx.results.0.hits.hits.0._source.agent.name}}\n🌐 **SrcIP**: {{ctx.results.0.hits.hits.0._source.data.win.eventdata.ipAddress}}"
+}
+```
+
+---
+
+## 🧩 Resulting Alert in Discord
+
+```
+🚨 Monitor SSH - BruteForce Alert (HIGH) just entered alert status!
+- Trigger: SSH-Bruteforce Detection Trigger
+- Severity: 1
+- Period start: 2025-05-07T09:00:37Z
+- Period end: 2025-05-07T09:02:37Z
+
+🔎 Rule: sshd: authentication failed.
+🖥️ Agent: kalicrow-agent
+🌐 SrcIP: 192.168.52.100
+```
+
+---
+
+## ✅ Final Outcome
+
+* SSH and RDP brute-force attacks were successfully **simulated, detected, and alerted**
+* Real-time notifications were pushed to **Discord**, replicating a real SOC alert pipeline
+* Deep dive into **Mustache templating**, Wazuh rules, OpenSearch queries
+
+---
+
+## 💡 Key Takeaways
+
+* Understanding and working with **Wazuh rules**, event decoding, and OpenSearch triggers
+* Importance of **testing** templates with realistic sample alerts
+* Building a **reliable home SIEM lab** that replicates SOC functionality
+
+---
+
+## 📌 Future Enhancements
+
+* Add GeoIP and ASN tagging for attacker IPs
+* Expand detection to include malware drop, privilege escalation
+* Integrate with Slack, Email, or Teams
+* Automate active responses (block IPs via firewall or Wazuh modules)
