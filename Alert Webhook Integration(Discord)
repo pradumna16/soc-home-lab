@@ -1,0 +1,99 @@
+# Discord SOC Integration with Wazuh Alerts
+
+## Overview
+
+This guide explains how to integrate Wazuh SIEM alerts (from both Linux and Windows systems) into a Discord channel. This approach mimics how modern SOCs use Slack or Microsoft Teams to receive actionable security alerts in real time.
+
+---
+
+## 1. Objective
+
+* Deliver actionable SOC alerts from Wazuh to a Discord channel.
+* Format alerts for readability and relevance (e.g., change type, file path, timestamp).
+* Apply throttling logic to reduce noise (especially from registry-based FIM events).
+
+---
+
+## 2. Prerequisites
+
+* Wazuh + OpenSearch stack operational
+* Discord server with permissions to create Webhooks
+* Monitor queries built and tested in OpenSearch
+
+---
+
+## 3. Steps to Integrate
+
+### A. Create a Webhook in Discord
+
+1. Go to your desired Discord server & channel.
+2. Click on **Edit Channel** > **Integrations** > **Webhooks**.
+3. Create a new webhook, give it a name (e.g., `win-fim-alerts`), and copy the Webhook URL.
+
+### B. Configure OpenSearch Monitor
+
+1. Navigate to **Alerting > Monitors** in OpenSearch Dashboards.
+2. Click **Create monitor** > Choose `Per query monitor`.
+3. Use a query like:
+
+```json
+{
+  "size": 1,
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "rule.groups": "syscheck" } },
+        { "match": { "agent.name": "win-agent" } },
+        { "terms": { "syscheck.event": ["modified", "added", "deleted"] } }
+      ],
+      "must_not": [
+        { "wildcard": { "syscheck.path": "*bam*" } }
+      ]
+    }
+  }
+}
+```
+
+4. Set the schedule (e.g., run every 2 minutes).
+
+### C. Add Action (Discord Alert)
+
+* Select **Webhook** as destination.
+* Paste the Webhook URL copied from Discord.
+* Message body template:
+
+```json
+{
+  "content": "\uD83D\uDEE1\uFE0F Windows FIM Alert on `{{ctx.results.0.hits.hits.0._source.agent.name}}`\n\n🔍 Change Type: {{ctx.results.0.hits.hits.0._source.syscheck.event}}\n📄 File: {{ctx.results.0.hits.hits.0._source.syscheck.path}}\n👤 User: {{ctx.results.0.hits.hits.0._source.syscheck.uname_after}}\n📋 Description: {{ctx.results.0.hits.hits.0._source.rule.description}}\n⏱️ Timestamp: {{ctx.results.0.hits.hits.0._source.timestamp}}"
+}
+```
+
+---
+
+## 4. Example Output
+
+**Channel**: `#win-fim-alerts`
+
+```
+🛡️ Windows FIM Alert on win-agent
+
+🔍 Change Type: added
+📄 File: C:\TestFIM\malicious.bat
+👤 User: Administrators
+📋 Description: File added to the system.
+⏱️ Timestamp: 2025-05-12T20:25:56.070+0000
+```
+
+---
+
+## 5. Optimization
+
+* **Throttling noisy paths**: Exclude logs from volatile keys like `bam`.
+* **Separate alerts** for Linux vs Windows agents.
+* **Markdown** formatting in message payloads to make alerts readable.
+
+---
+
+## 6. Conclusion
+
+This integration enables security teams (even in homelab or student environments) to simulate professional SOC-style alert routing. Discord acts as a central hub for critical alerts with structured, readable, and near-real-time notifications.
