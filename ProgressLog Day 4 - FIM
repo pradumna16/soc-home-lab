@@ -1,0 +1,163 @@
+File Integrity Monitoring (FIM) Project - Wazuh SOC Lab
+
+Overview
+
+This project implements File Integrity Monitoring (FIM) using Wazuh on both Linux (Kali) and Windows Server endpoints as part of a simulated SOC environment. It monitors sensitive files and registry keys for unauthorized changes, deletions, and additions, and sends real-time alerts to a Discord channel.
+
+---
+
+1\. Project Objectives
+
+Monitor critical system files and folders.
+
+Simulate file tampering on Linux and Windows.
+
+Generate alerts for actions like file modification, creation, or deletion.
+
+Integrate with Discord for SOC-style alerting.
+
+---
+
+2\. Environment Setup
+
+Linux Agent (Kali Linux)
+
+Agent Name: kalicrow-agent
+
+FIM Path Monitored: /etc/hosts, /var/www/html/, /tmp/fim/
+
+Simulated Attacks: nano /etc/hosts, delete/create Topsecret.txt
+
+Rule Triggered: ID 5402, 553, 554
+
+Sample Log Extract (Edit):
+
+"description": "Successful sudo to ROOT executed.",
+
+"command": "/usr/bin/nano /etc/hosts",
+
+"event": "modified"
+
+Sample Log Extract (Delete):
+
+"path": "/var/www/html/Topsecret.txt",
+
+"event": "deleted"
+
+Windows Agent (Windows Server)
+
+Agent Name: win-agent
+
+FIM Paths Monitored:
+
+Executables: C:\Windows\system32, C:\Windows\regedit.exe
+
+Custom Test Path: C:\TestFIM\*
+
+Registry Keys: HKEY_LOCAL_MACHINE\System, Winlogon, Run, etc.
+
+Simulated Attacks:
+
+Create/Modify malicious.bat in C:\TestFIM
+
+Tamper Registry under HKLM\Software\Microsoft\Windows\CurrentVersion\Run
+
+Sample Log Extract (File Create):
+
+"path": "c:\\TestFIM\\malicious.bat",
+
+"event": "added"
+
+Sample Log Extract (Registry Change):
+
+"path": "HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\bam\\State\\UserSettings",
+
+"event": "modified"
+
+---
+
+3\. Wazuh Configuration
+
+agent.conf (Linux)
+
+Added paths to shared/default/agent.conf:
+
+<localfile>
+
+  <location>/etc/hosts</location>
+
+  <log_format>syslog</log_format>
+
+</localfile>
+
+ossec.conf (Windows)
+
+Included monitored paths and registry keys under <syscheck>.
+
+<directories realtime="yes">C:\TestFIM</directories>
+
+<windows_registry>HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run</windows_registry>
+
+---
+
+4\. Alerts and Detection
+
+Monitors were created in OpenSearch:
+
+Linux FIM - Detection system
+
+Windows FIM Monitor
+
+Throttling
+
+Implemented throttling logic for Windows to suppress noisy registry alerts.
+
+"syscheck.path": { "not": { "wildcard": "bam" } }
+
+---
+
+5\. Discord Alerting Integration
+
+Created custom Webhook in Discord.
+
+Used OpenSearch Monitor actions to send JSON messages.
+
+Message template:
+
+"content": "Windows FIM Alert on {{ctx.results.0.hits.hits.0._source.agent.name}}\nChange Type: {{ctx.results.0.hits.hits.0._source.syscheck.event}}\nFile: {{ctx.results.0.hits.hits.0._source.syscheck.path}}\nDescription: {{ctx.results.0.hits.hits.0._source.rule.description}}\nTimestamp: {{ctx.results.0.hits.hits.0._source.timestamp}}"
+
+Result
+
+Alerts were received on Discord within seconds of file or registry tampering.
+
+---
+
+6\. Challenges Faced & Resolutions
+
+-Issue: Logs were flooding due to bam registry key noise.
+
+Fix: Added filter condition in query to exclude bam paths.
+
+Issue: Duplicate alerts not triggering after acknowledgment.
+
+Fix: Adjusted alert conditions to fire on event, path, and hash.
+
+Issue: Linux command logs missing initially.
+
+Fix: Ensured sudo logs were included and Wazuh agent restarted.
+
+---
+
+7\. Conclusion
+
+The FIM project demonstrates how file and registry integrity monitoring can be achieved with Wazuh and visualized via OpenSearch, with real-time alerting via Discord. It mimics SOC practices and sets a strong foundation for future use cases.
+
+---
+
+Next Steps
+
+Extend FIM to include honeypot directories.
+
+Integrate with VirusTotal API for file hash reputation.
+
+Begin Module 3: Malware Detection Simulation.
